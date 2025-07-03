@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MitM Detection Dashboard</title>
+</head>
+<body>
+    <h2>Real-Time MitM Detection</h2>
+    <button onclick="startMonitoring()">Start Monitoring</button>
+    <div id="result"></div>
+
+    <script>
+        function startMonitoring() {
+            fetch('/start', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("result").innerText = data.message;
+            });
+        }
+    </script>
+</body>
+</html>
