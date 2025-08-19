@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Attack Detection</title>
+  <script>
+    async function detectAttack() {
+      // Collect features from input
+      let features = document.getElementById("features").value
+        .split(",")
+        .map(Number);
+
+      // Send request to FastAPI
+      let response = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features })
+      });
+
+      let result = await response.json();
+      document.getElementById("output").innerText =
+        "Prediction: " + result.label + " (Prob: " + result.attack_probability + ")";
+    }
+  </script>
+</head>
+<body style="font-family: Arial; margin: 40px;">
+  <h2>Hybrid Model: Real-Time Attack Detection</h2>
+  <p>Enter 20 comma-separated features:</p>
+  <textarea id="features" rows="3" cols="80">123.45,5.67,8.91,4.32,443,1500,200.12,1514,8192,120.56,15.89,8192,1500,52345,500.67,14,120.67,0.056,0.004,0.12</textarea><br><br>
+  <button onclick="detectAttack()">Detect Attack</button>
+  <h3 id="output"></h3>
+</body>
+</html>
