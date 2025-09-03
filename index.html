@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MITM Attack Detector</title>
+<style>
+  body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    background: #f0f2f5; 
+    margin: 0; padding: 0;
+  }
+
+  /* Header */
+  header {
+    background: #343a40;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h2 { margin: 0; font-size: 18px; }
+
+  /* Notification bell */
+  .bell {
+    position: relative;
+    cursor: pointer;
+    font-size: 22px;
+  }
+  .bell::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: red;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 50%;
+    display: none;
+  }
+  .bell[data-count]:not([data-count="0"])::after {
+    display: inline-block;
+  }
+
+  /* Dropdown */
+  .dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 35px;
+    background: white;
+    color: black;
+    min-width: 250px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    z-index: 200;
+  }
+  .dropdown .notif {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+  .dropdown .notif:last-child {
+    border-bottom: none;
+  }
+  .dropdown .notif:hover {
+    background: #f0f0f0;
+  }
+
+  h1 { text-align: center; color: #333; margin: 20px 0; }
+  
+  #analyzeBtn {
+    display: block; 
+    margin: 20px auto; 
+    padding: 12px 25px; 
+    font-size: 18px; 
+    background: #007bff; 
+    color: white; 
+    border: none; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    transition: background 0.3s;
+  }
+  #analyzeBtn:hover { background: #0056b3; }
+
+  #results {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px;
+  }
+
+  .flow-card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px 20px;
+    width: 250px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+  }
+  .flow-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+
+  .flow-header { font-weight: bold; margin-bottom: 10px; }
+  .status { margin-bottom: 8px; font-size: 14px; }
+
+  .prob-bar {
+    height: 20px;
+    width: 100%;
+    background: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%;
+    text-align: right;
+    padding-right: 5px;
+    color: white;
+    font-weight: bold;
+    line-height: 20px;
+    border-radius: 10px;
+    transition: width 0.6s;
+  }
+  .attack-fill { background: linear-gradient(90deg, #ff4d4d, #ff1a1a); }
+  .normal-fill { background: linear-gradient(90deg, #28a745, #45d86b); }
+
+  /* Tooltip */
+  .tooltip {
+    visibility: hidden;
+    background: #333;
+    color: #fff;
+    text-align: left;
+    padding: 8px;
+    border-radius: 6px;
+    position: absolute;
+    z-index: 300;
+    top: -10px;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    font-size: 13px;
+    width: max-content;
+    max-width: 230px;
+    white-space: pre-line;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .flow-card:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h2>MITM Attack Analyzer</h2>
+  <div class="bell" id="notifBell" data-count="0">🔔
+    <div class="dropdown" id="notifDropdown"></div>
+  </div>
+</header>
+
+<h1>MITM Attack Analyzer</h1>
+<button id="analyzeBtn">Analyze Flows</button>
+<div id="results"></div>
+
+<script>
+const bell = document.getElementById("notifBell");
+const dropdown = document.getElementById("notifDropdown");
+let notifCount = 0;
+
+// Toggle dropdown on bell click
+bell.addEventListener("click", () => {
+    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+});
+
+// Add a new notification
+function addNotification(message) {
+    const notif = document.createElement("div");
+    notif.className = "notif";
+    notif.textContent = message;
+    dropdown.prepend(notif); // newest at top
+    notifCount++;
+    bell.setAttribute("data-count", notifCount);
+}
+
+// Convert protocol number to string
+function protocolName(num) {
+    switch(num) {
+        case 6: return "TCP";
+        case 17: return "UDP";
+        case 1: return "ICMP";
+        default: return `Unknown(${num})`;
+    }
+}
+
+// Analyze flows
+async function analyzeFlows() {
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "<p style='text-align:center'>Analyzing flows... ⏳</p>";
+
+    try {
+        const response = await fetch('/get_flows');
+        if (!response.ok) throw new Error("Failed to fetch flows");
+        const lines = await response.json();
+
+        resultsDiv.innerHTML = "";
+
+        for (let i = 0; i < lines.length; i++) {
+            const f = lines[i];
+
+            const card = document.createElement("div");
+            card.className = "flow-card";
+
+            // Create tooltip with selected details
+            const tooltip = document.createElement("div");
+            tooltip.className = "tooltip";
+            tooltip.textContent = 
+                `Src Port: ${f[13]}\nDst Port: ${f[4]}\nAvg Packet Size: ${f[0]}\nBwd Packet Length Mean: ${f[2]}\nFwd IAT Max: ${f[19]}`;
+            card.appendChild(tooltip);
+
+            try {
+                const apiRes = await fetch('http://127.0.0.1:8000/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ features: f })
+                });
+
+                if (!apiRes.ok) {
+                    card.textContent = "API request failed";
+                    resultsDiv.appendChild(card);
+                    continue;
+                }
+
+                const result = await apiRes.json();
+                const label = (result.label || "").toLowerCase();
+                const prob = result.attack_probability || 0;
+                const percent = (prob * 100).toFixed(2);
+
+                const header = document.createElement("div");
+                header.className = "flow-header";
+                header.textContent = `Flow ${i + 1}`;
+                card.appendChild(header);
+
+                const status = document.createElement("div");
+                status.className = "status";
+                status.innerHTML = label === "attack" || prob > 0.5 
+                    ? `🚨 ATTACK detected`
+                    : `✅ Normal traffic`;
+                card.appendChild(status);
+
+                const bar = document.createElement("div");
+                bar.className = "prob-bar";
+                const fill = document.createElement("div");
+                fill.className = `prob-fill ${label === "attack" || prob > 0.5 ? "attack-fill" : "normal-fill"}`;
+                fill.style.width = `${percent}%`;
+                fill.textContent = `${percent}%`;
+                bar.appendChild(fill);
+                card.appendChild(bar);
+
+                if (label === "attack" || prob > 0.5) {
+                    addNotification(`Flow ${i + 1}: Attack detected (${percent}%)`);
+                }
+
+            } catch (err) {
+                card.textContent += "Error: " + err;
+            }
+
+            resultsDiv.appendChild(card);
+        }
+    } catch (err) {
+        resultsDiv.innerHTML = `<p style='color:red; text-align:center;'>Error: ${err}</p>`;
+    }
+}
+
+document.getElementById("analyzeBtn").addEventListener("click", analyzeFlows);
+</script>
+
+</body>
+</html>
