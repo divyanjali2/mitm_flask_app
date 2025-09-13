@@ -1,60 +1,36 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+import os
+from flask import Flask, render_template, jsonify
+from utils.detector import detect_mitm
 
-PCAP_FILE = "synthetic_flows1.pcap"
+app = Flask(__name__)
 
-app = FastAPI()
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-# Allow JS from any origin to call this API
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-async def serve_html():
+@app.route('/start_monitoring', methods=['POST'])
+def start_monitoring():
     try:
-        # Open with utf-8 encoding to avoid UnicodeDecodeError
-        with open("index.html", "r", encoding="utf-8") as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content)
+        result = detect_mitm()
+        return jsonify({
+            'status': 'success',
+            'message': 'Monitoring started',
+            'result': result
+        })
     except Exception as e:
-        return HTMLResponse(content=f"<h1>Error loading HTML: {e}</h1>", status_code=500)
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
-@app.get("/get_flows")
-async def get_flows():
-    flows = []
-    try:
-        with open(PCAP_FILE, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        for line in lines:
-            line = line.strip().strip(",").strip("[]")
-            if not line:
-                continue
-            features = [float(x.strip()) for x in line.split(",")]
-            flows.append(features)
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
-    
-    return flows
+@app.route('/health')
+def health():
+    return jsonify({'status': 'healthy'})
 
-@app.post("/predict")
-async def predict(request: Request):
-    """
-    Mock prediction endpoint.
-    Replace this with your actual ML model inference.
-    """
-    try:
-        data = await request.json()
-        features = data.get("features", [])
-
-        # Mock attack probability logic (replace with ML model)
-        attack_prob = sum(features) % 1000 / 1000  # just a fake probability
-        label = "attack" if attack_prob > 0.5 else "normal"
-
-        return {"label": label, "attack_probability": attack_prob}
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+if __name__ == '__main__':
+    # For local development
+    app.run(debug=True)
+else:
+    # For production (Azure)
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)
