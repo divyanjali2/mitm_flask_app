@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - mitm-fastapi-demo
+name: Build and deploy Python app to Azure Web App - MITMD
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Create and start virtual environment
         run: |
@@ -58,14 +58,14 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_AFA2B2B8158F441C9A02F71CB99E6C6D }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AB0D971CABFA4E318163A480C40EDBE8 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C491A58F3EB54E4C8A459F93024FFFFC }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2495B6E72533497B96359C56C37BCBDD }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_35D289138C574C4FB7E478697D2920F5 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B1402F0ECAC0481794952FCF31390E40 }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
-          app-name: 'mitm-fastapi-demo'
+          app-name: 'MITMD'
           slot-name: 'Production'
           
