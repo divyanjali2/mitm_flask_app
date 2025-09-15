@@ -21,4 +21,4 @@ COPY . .
 EXPOSE 8000
 
 # Start Gunicorn server
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "server:app"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "app:app"]
