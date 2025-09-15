@@ -19,7 +19,7 @@ app.add_middleware(
 async def serve_html():
     try:
         # Open with utf-8 encoding to avoid UnicodeDecodeError
-        with open("index.html", "r", encoding="utf-8") as f:
+        with open("./templates/index.html", "r", encoding="utf-8") as f:
             html_content = f.read()
         return HTMLResponse(content=html_content)
     except Exception as e:
