@@ -11,7 +11,6 @@ def index():
 @app.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
     try:
-        # Call your MITM detection function
         result = detect_mitm()
         return jsonify({
             'status': 'success',
@@ -39,10 +38,8 @@ def stop_monitoring():
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Render"""
     return jsonify({'status': 'healthy', 'message': 'MITM Detector is running'})
 
-# Error handlers
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Not found'}), 404
@@ -51,10 +48,7 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
+# Only run locally with Flask development server
 if __name__ == '__main__':
-    # For local development
-    app.run(debug=True, host='0.0.0.0', port=5000)
-else:
-    # For production (Render)
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
