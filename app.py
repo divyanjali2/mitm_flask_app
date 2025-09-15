@@ -1,54 +1,61 @@
-import os
-from flask import Flask, render_template, jsonify, request
-from utils.detector import detect_mitm
+# server.py
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 
-app = Flask(__name__)
+PCAP_FILE = "synthetic_flows1.pcap"
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+app = FastAPI()
 
-@app.route('/start_monitoring', methods=['POST'])
-def start_monitoring():
+# Allow JS from any origin to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+async def serve_html():
     try:
-        result = detect_mitm()
-        return jsonify({
-            'status': 'success',
-            'message': 'Monitoring started successfully',
-            'result': result
-        })
+        # Open with utf-8 encoding to avoid UnicodeDecodeError
+        with open("./templates/index.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
     except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Error starting monitoring: {str(e)}'
-        }), 500
+        return HTMLResponse(content=f"<h1>Error loading HTML: {e}</h1>", status_code=500)
 
-@app.route('/stop_monitoring', methods=['POST'])
-def stop_monitoring():
+@app.get("/get_flows")
+async def get_flows():
+    flows = []
     try:
-        return jsonify({
-            'status': 'success',
-            'message': 'Monitoring stopped successfully'
-        })
+        with open(PCAP_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip().strip(",").strip("[]")
+            if not line:
+                continue
+            features = [float(x.strip()) for x in line.split(",")]
+            flows.append(features)
     except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Error stopping monitoring: {str(e)}'
-        }), 500
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    
+    return flows
 
-@app.route('/health')
-def health_check():
-    return jsonify({'status': 'healthy', 'message': 'MITM Detector is running'})
+@app.post("/predict")
+async def predict(request: Request):
+    """
+    Mock prediction endpoint.
+    Replace this with your actual ML model inference.
+    """
+    try:
+        data = await request.json()
+        features = data.get("features", [])
 
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Not found'}), 404
+        # Mock attack probability logic (replace with ML model)
+        attack_prob = sum(features) % 1000 / 1000  # just a fake probability
+        label = "attack" if attack_prob > 0.5 else "normal"
 
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
-
-# Only run locally with Flask development server
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+        return {"label": label, "attack_probability": attack_prob}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
